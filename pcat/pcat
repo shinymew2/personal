@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+
+from pygments import highlight, lexers, formatters
+import argparse
+import sys
+import pathlib
+import json
+import os
+
+VERSION: int = 1
+GREEN: str = '\033[92m'
+RESET: str = '\033[0m'
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description='low function p(ython)cat implementation')
+    parser.add_argument('-j', '--json', help="check if file is in json format", action='store_true')
+    parser.add_argument('-d', '--directory', help="read the directory contents", action='store_true')
+    parser.add_argument('-v', '--version', help="print out pcat version", action='store_true')
+    args = parser.parse_known_args()[0]
+
+    file_to_read: pathlib.Path | None = None
+
+    try:
+        filename: str = sys.argv[1]
+        file_to_read = pathlib.Path(filename)
+        if not file_to_read.exists():
+            raise Exception
+    except:
+        parser.print_help()
+        sys.exit(2)
+
+    if args.version:
+        print(f"pcat {VERSION}")
+
+    elif file_to_read.is_dir():
+        if args.directory:
+            read_directory(file_to_read)
+        else:
+            print(f"pcat: {filename}: Is a directory, display content with -d flag")
+            sys.exit(1)
+
+    elif args.json:
+        read_json(file_to_read)
+
+    else:
+        read_file(file_to_read)
+
+    sys.exit(0)
+
+
+def read_directory(file: pathlib.Path) -> None:
+    dirpath, dirnames, filenames = next(os.walk(file), (None, [], []))
+    directory_contents: list['str'] = list(sorted([dir_content for dir_content in dirnames + filenames]))
+
+    if len(directory_contents) == 0:
+        print("pcat: Directory is empty")
+        sys.exit(0)
+
+    for content in directory_contents:
+        if pathlib.Path(f"{dirpath}/{content}").is_dir():
+            print(GREEN + f"{content}/" + RESET)
+        else:
+            print(content)
+
+
+def read_file(file: pathlib.Path) -> None:
+    try:
+        for line in line_gen(file):
+            print(line.strip('\n'))
+    except:
+        print("pcat: File is not readable")
+        sys.exit(1)
+
+
+def read_json(file: pathlib.Path) -> None:
+    try:
+        json_data = json.load(file.open(mode='r'))
+    except:
+        print("pcat: File is not in json format")
+        sys.exit(1)
+
+    formatted_json = json.dumps(json_data, indent=4)
+
+    colorful_json = highlight(formatted_json, lexers.JsonLexer(), formatters.TerminalFormatter())
+    print(colorful_json, end='')
+
+
+def line_gen(file: pathlib.Path):
+    with file.open(mode='r') as f:
+        for line in f:
+            yield line
+
+
+if __name__ == "__main__":
+    main()
